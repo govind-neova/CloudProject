@@ -1,0 +1,16 @@
+#!/usr/bin/python
+
+import boto3
+
+kms_client = boto3.client('kms')
+response = kms_client.create_key(Description="testing key")
+
+# Return the key ID and ARN
+Key_id=response['KeyMetadata']['KeyId']
+print (Key_id)
+
+#====================================== Enable key rotation======================================
+
+response = kms_client.enable_key_rotation(
+    KeyId=Key_id
+)

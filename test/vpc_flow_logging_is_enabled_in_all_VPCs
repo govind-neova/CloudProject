@@ -1,0 +1,91 @@
+#!/usr/bin/python
+
+import boto3
+import json
+from botocore.exceptions import ClientError
+
+ec2 = boto3.resource("ec2")
+ec2_client = boto3.client("ec2")
+log_client = boto3.client("logs")
+iam_client = boto3.client("iam")
+
+#====================================================Creating VPC==========================================================
+
+#vpc = ec2.create_vpc(CidrBlock='172.16.0.0/16')
+#
+#vpc.create_tags(Tags=[{"Key": "Name", "Value": "FlowLogVPC"}])
+#
+#vpc.wait_until_available()
+#
+##===================================================Create Log Group=======================================================
+#
+#log_groups = log_client.describe_log_groups()
+#pattern = 'VpcFlowLogGroup'
+#varStatus = "false"
+#
+#for i in log_groups['logGroups']:
+#    print (i['logGroupName'])
+#    if i['logGroupName'] == 'VpcFlowLogGroup' :
+#        print('Log Group Already Exist')
+#        varStatus = "true"
+#
+#
+#if varStatus == "false":
+#    print ('Creating New Log Group')
+#    log_response=log_client.create_log_group(
+#            logGroupName='VpcFlowLogGroup'
+#              )
+#    print ('Created flow log group')
+#
+##===================================================Policies===============================================================
+
+policy_trust_document = json.dumps({
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+               "Sid": "",
+            "Effect": "Allow",
+            "Principal": {
+                "Service": "vpc-flow-logs.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+        }
+    ]
+})
+
+flow_logs_policy_document = json.dumps({
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "logs:CreateLogGroup",
+                "logs:CreateLogStream",
+                "logs:PutLogEvents",
+                "logs:DescribeLogGroups",
+                "logs:DescribeLogStreams"
+            ],
+            "Effect": "Allow",
+            "Resource": "*"
+        }
+    ]
+})
+
+
+#==========================================================================================================
+
+flow_logs_policy = iam_client.create_policy(
+            PolicyName='vpc_flow_log_policy',
+            PolicyDocument=flow_logs_policy_document,
+            Description="Policy for Flow Logs"
+        )
+
+#==========================================================================================================
+#==========================================================================================================
+#==========================================================================================================
+#==========================================================================================================
+#==========================================================================================================
+#==========================================================================================================
+#==========================================================================================================
+#==========================================================================================================
+#==========================================================================================================
+#==========================================================================================================

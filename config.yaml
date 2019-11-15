@@ -1,0 +1,6 @@
+# This file is used to configure the behaviour for the scripts at runtime.
+# Please update the values of the variables very carefully.
+
+mode: compliant
+deleteExistingResources: true
+updateExistingResources: false
