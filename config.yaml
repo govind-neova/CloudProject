@@ -2,5 +2,5 @@
 # Please update the values of the variables very carefully.
 
 mode: compliant
-deleteExistingResources: true
-updateExistingResources: false
+deleteExistingResources: False
+updateExistingResources: True
