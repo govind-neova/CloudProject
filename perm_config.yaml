@@ -1,0 +1,4 @@
+#This file will be used to provide the variables such as prefix,loglevel etc....
+
+logLevel: INFO
+prefix: ato

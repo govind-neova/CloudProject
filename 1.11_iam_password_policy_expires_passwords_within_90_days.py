@@ -27,8 +27,11 @@ elif varUserInput == 'nonCompliantUpdate' :
     log.info("non-Compliant and Update")
 elif varUserInput == 'compliantDelete' or varUserInput == 'nonCompliantDelete' :   
     log.error("Deletion does not applies to this process.")
+elif varUserInput == 'createcompliant' or varUserInput == "createnoncompliant":
+    log.error("Creation does not apply to this process")
 else :
     log.error("Please provide valid inputs")
 
 
 func_write_to_json(varScriptName)
+func_reset_config ()

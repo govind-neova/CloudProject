@@ -27,7 +27,10 @@ elif varUserInput == 'nonCompliantUpdate' :
     log.info("Non-Compliant, Updated account password policy")
 elif varUserInput == 'compliantDelete' or varUserInput == 'nonCompliantDelete' :
     log.error("Deletion does not applies to this process.")
+elif varUserInput == 'createcompliant' or varUserInput == "createnoncompliant":
+    log.error("Creation does not apply to this process")
 else :
     log.error("Please provide valid inputs in config file")
 
 func_write_to_json(varScriptName)
+func_reset_config ()

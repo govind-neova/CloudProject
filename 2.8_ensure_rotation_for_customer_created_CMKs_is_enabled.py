@@ -23,10 +23,12 @@ def func_kmsKeys_details_compliant ():
         try:
             keyState = kms_client.describe_key(KeyId=i['KeyId'])
             if "PendingDeletion" not in str(keyState['KeyMetadata']['KeyState']) and "Default master key that protects my" not in str(keyState['KeyMetadata']['Description']):
-                status = kms_client.describe_key(KeyId=i['KeyId'])
-                if (status['KeyMetadata']['Enabled']) is True:
-                    yield i
-#                    print (status['KeyMetadata']['Enabled'])
+                rotationStatus = kms_client.get_key_rotation_status(KeyId=i['KeyId'])
+                if rotationStatus['KeyRotationEnabled'] is True :
+                    status = kms_client.describe_key(KeyId=i['KeyId'])
+                    if (status['KeyMetadata']['Enabled']) is True:
+                        yield i
+#                        print (status['KeyMetadata']['Enabled'])
         except Exception as e:
             print(e)
               
@@ -38,10 +40,10 @@ def func_kmsKeys_details_nonCompliant ():
         try:
             keyState = kms_client.describe_key(KeyId=i['KeyId'])
             if "PendingDeletion" not in str(keyState['KeyMetadata']['KeyState']) and "Default master key that protects my" not in str(keyState['KeyMetadata']['Description']):
+                rotationStatus = kms_client.get_key_rotation_status(KeyId=i['KeyId'])
                 status = kms_client.describe_key(KeyId=i['KeyId'])
-                if (status['KeyMetadata']['Enabled']) is False:
-                    yield (i['KeyId'])
-                    print (status['KeyMetadata']['Enabled'])
+                if rotationStatus['KeyRotationEnabled'] is False or (status['KeyMetadata']['Enabled']) is False :
+                    yield i
         except Exception as e:
             print(e)
 
@@ -62,6 +64,15 @@ def func_kmsKeys_list_cmks ():
 
 kmsKeys_list_cmks = func_kmsKeys_list_cmks ()
 
+#Function to create compliant key
+def func_create_compliant_key ():
+    kms_response = kms_client.create_key(Description="cis-testing-key")
+    print (kms_response['KeyMetadata']['KeyId'])
+    kms_client.enable_key_rotation(KeyId=kms_response['KeyMetadata']['KeyId'])
+
+#Function to create non-compliant key
+def func_create_non_compliant_key ():
+    kms_response = kms_client.create_key(Description="cis-testing-key")
 
 #If loop for performing operations on Cloudtrails as per config.yaml file
 if varUserInput == 'nonCompliantUpdate':
@@ -69,93 +80,30 @@ if varUserInput == 'nonCompliantUpdate':
     for value in func_kmsKeys_details_compliant ():
         print (value['KeyArn'])
         kms_client.disable_key_rotation(KeyId=value['KeyId'])
-kms_response = kms_client.create_key(Description="cis-testing-key")
-print (kms_response)
-#elif varUserInput == 'compliantUpdate':
-#    log.info('Compliant and Update')
-#    for value in func_cloudTrails_details_nonCompliant ():
-#        print (value)
-#        homeRegion=value['HomeRegion']
-#        cloudTrailArn=value['TrailARN']
-#        s3BucketName=value['S3BucketName']
-#        print (homeRegion)
-#        print (cloudTrailArn)
-#        cloudTrail = boto3.client('cloudtrail', region_name=homeRegion)
-#        cloudTrail.update_trail(
-#                Name = cloudTrailArn,
-#                IsMultiRegionTrail=True,             
-#                IncludeGlobalServiceEvents=True
-#                )
-#        cloudTrail.start_logging(
-#                Name=cloudTrailArn
-#                )
-#elif varUserInput == 'compliantDelete':
-#    log.info('Compliant and Delete')
-#    for value in func_cloudTrails_resources_details ():
-#        print (value)
-#        cloudTrailArn=value['TrailARN']
-#        homeRegion=value['HomeRegion']
-#        cloudTrail = boto3.client('cloudtrail', region_name=homeRegion)
-#        response = cloudTrail.delete_trail(Name = cloudTrailArn)
-#elif varUserInput == 'nonCompliantDelete':
-#    log.info('Compliant and Delete')
-#    for value in func_cloudTrails_resources_details ():
-#        print (value)
-#        cloudTrailArn=value['TrailARN']
-#        homeRegion=value['HomeRegion']
-#        cloudTrail = boto3.client('cloudtrail', region_name=homeRegion)
-#        response = cloudTrail.delete_trail(Name = cloudTrailArn)
-
-
-#paginator = kms_client.get_paginator('list_keys')
-#response_iterator = paginator.paginate()
-#for page in response_iterator:
-#    for n in page['Keys']:
-#        try:
-#            rotationStatus = kms_client.get_key_rotation_status(KeyId=n['KeyId'])
-##            print (n['KeyId'])
-#            if rotationStatus['KeyRotationEnabled'] is False :
-#                keyDescription = kms_client.describe_key(KeyId=n['KeyId'])
-#                if "Default master key that protects my" not in str(keyDescription['KeyMetadata']['Description']):
-#                    print (n['KeyId'])
-#                    print (rotationStatus)
-#                    if varUserInput == 'compliantUpdate':
-#                        kms_client.enable_key_rotation(KeyId=n['KeyId'])
-#                        log.info("Compliant and Update")
-#                    elif varUserInput == 'compliantDelete':
-#                        kms_client.schedule_key_deletion( KeyId=n['KeyId'] )
-##                        log.info('deleting the keys')
-##                        kms_response = kms_client.create_key(Description="testing key")
-##                        log.info ('created key')
-##                        Key_id=kms_response['KeyMetadata']['KeyId']
-##                        kms_client.enable_key_rotation(KeyId=Key_id)
-##                        log.info("Compliant and Delete")    
-#                    else:
-#                        log.info("No action taken compliantUpdate compliantDelete")
-#            elif rotationStatus['KeyRotationEnabled'] is True :
-#                keyDescription = kms_client.describe_key(KeyId=n['KeyId'])
-#                if "Default master key that protects my" not in str(keyDescription['KeyMetadata']['Description']):
-#                    print (n['KeyId'])
-#                    print (rotationStatus)
-#                    if varUserInput == 'nonCompliantUpdate':
-#                        kms_client.disable_key_rotation(KeyId=n['KeyId'])
-#                        log.info("NonCompliant and Update")
-#                    elif varUserInput == 'nonCompliantDelete':
-#                        log.info("Noncompliant and Delete")
-#                    else:
-#                        log.info("No action taken")
-#            else:
-#                log.info("No action 3")
-#        except Exception as e:
-#            print(e)
-
-#print (keys['Keys'])
-# Return the key ID and ARN
-#Key_id=response['KeyMetadata']['KeyId']
-#print (Key_id)
-#
-##====================================== Enable key rotation======================================
-#
-#response = kms_client.enable_key_rotation(
-#    KeyId=Key_id
-#)
+    func_create_non_compliant_key ()
+elif varUserInput == 'compliantUpdate':
+    log.info('compliant and Update')
+    for value in func_kmsKeys_details_nonCompliant ():
+        rotationStatus = kms_client.get_key_rotation_status(KeyId=value['KeyId'])
+        status = kms_client.describe_key(KeyId=value['KeyId'])
+        if (status['KeyMetadata']['Enabled']) is True :
+            if rotationStatus['KeyRotationEnabled'] is False :
+                print (value['KeyArn'])
+                kms_client.enable_key_rotation(KeyId=value['KeyId'])
+    func_create_compliant_key ()
+elif varUserInput == 'compliantDelete':
+    log.info('compliant and Delete')
+    for value in func_kmsKeys_list_cmks () :
+        print (value['KeyArn'])
+        kms_client.schedule_key_deletion(KeyId=value['KeyId'])
+    func_create_compliant_key ()
+elif varUserInput == 'nonCompliantDelete':
+    log.info('compliant and Delete')
+    for value in func_kmsKeys_list_cmks () :
+        print (value['KeyArn'])
+        kms_client.schedule_key_deletion(KeyId=value['KeyId'])
+    func_create_non_compliant_key ()
+elif varUserInput == 'createcompliant':
+    func_create_compliant_key ()
+elif varUserInput == "createnoncompliant":
+    func_create_non_compliant_key ()
