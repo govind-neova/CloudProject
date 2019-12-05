@@ -6,6 +6,7 @@ import sys
 import os
 import datetime
 import logging
+import time
 
 #This function fetches data from perm_config.yaml file
 def func_premenant_yaml_input_vars():
@@ -31,8 +32,8 @@ def funcResName(varService,varResource):
     
     permConfigData = func_premenant_yaml_input_vars()
     varPrefix = permConfigData['prefix']
-    datefmt = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-    varName = varPrefix+ "_" +varService+ "_" +varResource+ "_" +datefmt
+    ts = int(time.time())
+    varName = varPrefix+ "_" +varService+ "_" +varResource+ "_" +str(ts)
     return varName
 
 

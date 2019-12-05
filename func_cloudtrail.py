@@ -23,6 +23,7 @@ import sys
 #print (bucket)
 #print (cloudTrail_name)
 
+
 #Global variables
 cloudTrail = boto3.client('cloudtrail')
 s3 = boto3.client('s3')
@@ -34,6 +35,7 @@ print (cloudTrail_name)
 
 def func_create_non_comp_cloudTrail():
 
+    print ('hiiiiiiiii')
     # Create a bucket policy
     s3 = boto3.client('s3')
     response = s3.create_bucket(
@@ -65,12 +67,12 @@ def func_create_non_comp_cloudTrail():
     }
     
     bucket_policy = json.dumps(bucket_policy)
-    
+    print ('1') 
     
     ## Set the new policy on the given bucket
     s3.put_bucket_policy(Bucket=bucket, Policy=bucket_policy)
     
-    cloudTrail.create_trail(
+    response=cloudTrail.create_trail(
         Name=cloudTrail_name,
         S3BucketName=bucket,
         IncludeGlobalServiceEvents=True,
@@ -81,9 +83,10 @@ def func_create_non_comp_cloudTrail():
     #    KmsKeyId='string',
     #    IsOrganizationTrail=True|False
     )
-    
+    print ('2')
     cloudTrail.start_logging(
         Name=cloudTrail_name
                     )
+    return response
 
 func_create_non_comp_cloudTrail()    
