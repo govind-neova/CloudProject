@@ -26,10 +26,12 @@ def func_cloudTrails_details_compliant ():
     log.info("Gathering information for compliant resources")
     for i in data:
         for j in i:
+            log.info("A")
             client = boto3.client('cloudtrail')
             cloudTrail = boto3.client('cloudtrail', region_name=j)
             cloudTrail_response = cloudTrail.describe_trails()
             homeRegion = cloudTrail_response['trailList']
+            log.info("iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii")
             for k in cloudTrail_response['trailList']:
                 if k:
                     response = cloudTrail.get_trail_status(Name=k['TrailARN'])
@@ -54,13 +56,10 @@ def func_cloudTrails_details_nonCompliant ():
 #If loop for performing operations on Cloudtrails as per config.yaml file
 log.info("Performing user input validation")
 if varUserInput == 'nonCompliantUpdate':
-    log.info('The user request is to make resources compliant')
+    log.info('The user request is to make resources non-compliant')
     for value in func_cloudTrails_details_compliant ():
-        #print (value)
         homeRegion=value['HomeRegion']
-        #print (homeRegion)
         cloudTrailArn=value['TrailARN']
-        #print (value['TrailARN'])
         cloudTrail = boto3.client('cloudtrail', region_name=homeRegion)
         try:
             response1=cloudTrail.update_trail(
@@ -72,22 +71,17 @@ if varUserInput == 'nonCompliantUpdate':
                     )
             if response1['ResponseMetadata']['HTTPStatusCode'] == 200 and response2['ResponseMetadata']['HTTPStatusCode'] == 200:
                 log.info('Resources are made non-compliant successfully')
-            else:
-                log.info('Compliant resource/resources not found')
         except Exception as e:
             if e.response['Error']['Code'] == 'S3BucketDoesNotExistException':
                 log.error ("No bucket is configured for above cloudtrail therefore operation can't be performed")
                 pass
 
 elif varUserInput == 'compliantUpdate':
-    log.info('The user request is to make resources non-compliant')
+    log.info('The user request is to make resources compliant')
     for value in func_cloudTrails_details_nonCompliant ():
-        print (value)
         homeRegion=value['HomeRegion']
         cloudTrailArn=value['TrailARN']
         s3BucketName=value['S3BucketName']
-        print (homeRegion)
-        print (cloudTrailArn)
         cloudTrail = boto3.client('cloudtrail', region_name=homeRegion)
         try:
             response1=cloudTrail.update_trail(
@@ -100,8 +94,6 @@ elif varUserInput == 'compliantUpdate':
                     )
             if response1['ResponseMetadata']['HTTPStatusCode'] == 200 and response2['ResponseMetadata']['HTTPStatusCode'] == 200:
                 log.info('Resources are made compliant successfully')
-            else:
-                log.info('Non-compliant resource/resources not found')
         except Exception as e:
             if e.response['Error']['Code'] == 'S3BucketDoesNotExistException':
                 log.error ("No bucket is configured for above bucket therefore operation can't be performed")
@@ -143,21 +135,26 @@ elif varUserInput == "createnoncompliant":
     varFlag = False
 
 if varFlag is True:
-    log.info('Creating a non-compliant resource')
+    log.info('Creating a compliant resource')
     i=func_create_non_comp_cloudTrail()
     print (i['TrailARN'])
     Arn = i['TrailARN']
-    cloudTrail.update_trail(
+    response1=cloudTrail.update_trail(
             Name = Arn,
             IsMultiRegionTrail=True,
             IncludeGlobalServiceEvents=True
             )
-    cloudTrail.start_logging(
+    response2=cloudTrail.start_logging(
             Name=Arn
             )
+    if response1['ResponseMetadata']['HTTPStatusCode'] == 200 and response2['ResponseMetadata']['HTTPStatusCode'] == 200:
+        log.info('Compliant resource is created')
+
 elif varFlag is False:
     log.info('Creating a compliant resource')
-    func_create_non_comp_cloudTrail()
+    response=func_create_non_comp_cloudTrail()
+    if response1['ResponseMetadata']['HTTPStatusCode'] == 200:
+        log.info('Compliant resource is created')
 else:
     #func_reset_config()
     sys.exit()

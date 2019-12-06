@@ -4,6 +4,7 @@ import boto3
 import json
 from common import *
 import sys
+import array
 
 #Declairing user input variable
 varUserInput = func_user_input_validation()
@@ -12,178 +13,151 @@ varUserInput = func_user_input_validation()
 varScriptName = sys.argv[0]
 
 #Global variables
-cloudTrail = boto3.client('cloudtrail')
-s3 = boto3.client('s3')
+client = boto3.client('cloudtrail')
+varFlag = ''
+#log.info('Gathering information for regions')
+#data = get_regions()
+#if data:
+#    log.info('Ragion list stored in a variable')
+#else:
+#    log.error('Unable to fetch list of regions')
+#    sys.exit()
 
-#Variable function to fetch regions and bucket names
-def func_variables ():
-    with open('./variable.json') as f:
-        data = json.load(f)
-        bucket = (data['Bucket'])
-        cloudTrail_name = (data['cloudTrail'])
-        return data
+def get_regions():
+    client = boto3.client('ec2')
+    region_response = client.describe_regions()
+    regions = [region['RegionName'] for region in region_response['Regions']]
+    return regions
 
-data = func_variables ()
-print (data)
+def get_cloudtrails():
+    trails = dict()
+    for n in get_regions():
+        client = boto3.client('cloudtrail', region_name=n)
+        response = client.describe_trails()
+        temp = []
+        for m in response['trailList']:
+            if m['HomeRegion'] == n:
+                temp.append(m)
+        if len(temp) > 0:
+            trails[n] = temp
+    return trails
 
-bucket = (data['Bucket'])
-cloudTrail_name = (data['cloudTrail'])
+def func_validate_compliant_or_not(varDecision):
+    cloud_trails = get_cloudtrails()
+    trails = dict()
+    temp = []
+    if cloud_trails:
+        for i in cloud_trails:
+            for j in  cloud_trails[i]:
+                if (j['LogFileValidationEnabled']) is varDecision:
+                    temp.append(j)
+                    trails = temp
+        return trails
+    else:
+        log.info("Cloudtrail resource does not exist")
+        sys.exit()
 
-#Function cloudtrail to create non comliant cloud Trail
-def func_create_nonCompCloudTrail ():
-
-    bucket = (data['Bucket'])
-    cloudTrail_name = (data['cloudTrail'])
-
-    try:
-
-        # Create a bucket policy
-        s3 = boto3.client('s3')
-        response = s3.create_bucket(
-            ACL='public-read-write',
-            Bucket=bucket
+def func_update_compliant_or_non_compliant(varHomeRegion,varTrailARN,varDecision):
+    cloudTrail = boto3.client('cloudtrail', region_name=varHomeRegion)
+    response=cloudTrail.update_trail(
+            Name=varTrailARN,
+            EnableLogFileValidation=varDecision
             )
+    if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+        if varDecision == True:
+            log.info('Resources are made compliant successfully')
+        elif varDecision == False:
+            log.info('Resources are made non-compliant successfully')
+        else:
+            log.info('Error occoured while updating resources')
 
-        # Create the bucket policy and convert to json
-        bucket_policy = {
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Sid": "AWSCloudTrailAclCheck20150319",
-                    "Effect": "Allow",
-                    "Principal": {"Service": "cloudtrail.amazonaws.com"},
-                    "Action": "s3:GetBucketAcl",
-                    "Resource": "arn:aws:s3:::%s" % bucket
-                },
-                {
-                    "Sid": "AWSCloudTrailWrite20150319",
-                    "Effect": "Allow",
-                    "Principal": {"Service": "cloudtrail.amazonaws.com"},
-                    "Action": "s3:PutObject",
-                    "Resource": "arn:aws:s3:::%s/*" % bucket ,
-                    "Condition": {"StringEquals": {"s3:x-amz-acl": "bucket-owner-full-control"}}
-                }
-            ]
-        }
+def func_delete_cloudTrail():
+    cloud_trails = get_cloudtrails()
+    if cloud_trails:
+        for i in cloud_trails:
+            for j in  cloud_trails[i]:
+                varHomeRegion = j['HomeRegion']
+                varTrailARN = j['TrailARN']
+                try:
+                    cloudTrail = boto3.client('cloudtrail', region_name=varHomeRegion)
+                    response = cloudTrail.delete_trail(Name = varTrailARN)
+                    #if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+                    #    varFlag = True
+                    #else: 
+                    #    varFlag = False
+                except Exception as e:
+                    print (e)
+        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+            log.info('Deletion performed successfully')
+        else:
+            log.error('Error occoured wile deleting the Cloudtrail')
+    else:
+        log.info("Cloudtrail resource does not exist")
+        sys.exit()
 
-        bucket_policy = json.dumps(bucket_policy)
-
-
-        ## Set the new policy on the given bucket
-        s3.put_bucket_policy(Bucket=bucket, Policy=bucket_policy)
-
-        cloudTrail_response=cloudTrail.create_trail(
-            Name=cloudTrail_name,
-            S3BucketName=bucket,
-            IncludeGlobalServiceEvents=True,
-        #    IsMultiRegionTrail=True
-        #    EnableLogFileValidation=True|False,
-        #    CloudWatchLogsLogGroupArn='string',
-        #    CloudWatchLogsRoleArn='string',
-        #    KmsKeyId='string',
-        #    IsOrganizationTrail=True|False
-        )
-
-        yield cloudTrail_response
-
-    except Exception as e:
-        print (e)
-
-#Function describing compliant Cloudtrails
-def func_logFileValidation_details_compliant ():
-    for i in data['region']:
-        client = boto3.client('cloudtrail')
-        cloudTrail = boto3.client('cloudtrail', region_name=i)
-        cloudTrail_response = cloudTrail.describe_trails()
-#        print (cloudTrail_response['trailList'])
-        if cloudTrail_response['trailList']:
-#            print cloudTrail_response['trailList']
-            for j in cloudTrail_response['trailList']:
-#                print (j['TrailARN'])
-#                print (j['LogFileValidationEnabled'])
-                if (j['LogFileValidationEnabled']) is True:
-                    yield (j)
-                    
-
-def func_logFileValidation_details_nonCompliant ():
-    for i in data['region']:
-        client = boto3.client('cloudtrail')
-        cloudTrail = boto3.client('cloudtrail', region_name=i)
-        cloudTrail_response = cloudTrail.describe_trails()
-        if cloudTrail_response['trailList']:
-            for j in cloudTrail_response['trailList']:
-                if (j['LogFileValidationEnabled']) is False:
-                    yield (j)
-
-def func_logFileValidation_details_list ():
-    for i in data['region']:
-        client = boto3.client('cloudtrail')
-        cloudTrail = boto3.client('cloudtrail', region_name=i)
-        cloudTrail_response = cloudTrail.describe_trails()
-        for j in cloudTrail_response['trailList']:
-            yield (j)
-
-
-#If loop for performing operations on Cloudtrails as per config.yaml file
 if varUserInput == 'nonCompliantUpdate':
-    log.info('Non-compliant and Update')
-    for value in func_logFileValidation_details_compliant ():
-        print (value)
-        homeRegion=value['HomeRegion']
-        cloudTrailArn=value['TrailARN']
-        cloudTrail = boto3.client('cloudtrail', region_name=homeRegion)
-        cloudTrail.update_trail(
-                Name=value['TrailARN'],
-                EnableLogFileValidation=False
-                )
-    
-    func_create_nonCompCloudTrail ()
+    log.info('The user request is to make resources non-compliant')
+    log.info("Gathering information for compliant resources")
+    compliant=func_validate_compliant_or_not(True)
+    if compliant:
+        for j in compliant:
+            varHomeRegion = j['HomeRegion']
+            varTrailARN = j['TrailARN']
+            func_update_compliant_or_non_compliant(varHomeRegion,varTrailARN,False)
+    else:
+        log.info("compliant resources does not exist")
 
 elif varUserInput == 'compliantUpdate':
-    log.info('Compliant and Update')
-    for value in func_logFileValidation_details_nonCompliant ():
-        print (value)
-        homeRegion=value['HomeRegion']
-        cloudTrailArn=value['TrailARN']
-        cloudTrail = boto3.client('cloudtrail', region_name=homeRegion)
-        cloudTrail.update_trail(
-                Name=value['TrailARN'],
-                EnableLogFileValidation=True
-                )
-
-    func_create_nonCompCloudTrail ()
-    for i in func_create_nonCompCloudTrail ():
-        Arn = i['TrailARN']
-        cloudTrail.update_trail(
-            Name = Arn,
-            EnableLogFileValidation=True
-            )
+    log.info('The user request is to make resources compliant')
+    log.info("Gathering information for non-compliant resources")
+    non_compliant=func_validate_compliant_or_not(False)
+    if non_compliant:
+        for j in non_compliant:
+            varHomeRegion = j['HomeRegion']
+            varTrailARN = j['TrailARN']
+            func_update_compliant_or_non_compliant(varHomeRegion,varTrailARN,True)
+    else:
+        log.info("non-compliant resources does not exist")
 
 elif varUserInput == 'compliantDelete':
-    log.info('Compliant and Delete')
-    for value in func_logFileValidation_details_list ():
-        cloudTrailArn=value['TrailARN']
-        print (cloudTrailArn)
-        homeRegion=value['HomeRegion']
-        print (homeRegion)
-        cloudTrail = boto3.client('cloudtrail', region_name=homeRegion)
-        response = cloudTrail.delete_trail(Name = cloudTrailArn)
-        print (response)
-
-    func_create_nonCompCloudTrail ()
-    for i in func_create_nonCompCloudTrail ():
-        Arn = i['TrailARN']
-        cloudTrail.update_trail(
-            Name = Arn,
-            EnableLogFileValidation=True
-            )
+    log.info('The user request is to delete existing resource/resources and create a compliant resource')
+    func_delete_cloudTrail()
+    varFlag = True
 
 elif varUserInput == 'nonCompliantDelete':
-    log.info('Non-compliant and Delete')
-    for value in func_logFileValidation_details_list ():
-        cloudTrailArn=value['TrailARN']
-        homeRegion=value['HomeRegion']
-        cloudTrail = boto3.client('cloudtrail', region_name=homeRegion)
-        response = cloudTrail.delete_trail(Name = cloudTrailArn)
-   
-    func_create_nonCompCloudTrail ()
+    log.info('The user request is to delete existing resource/resources and create a non-compliant resource')
+    func_delete_cloudTrail()
+    varFlag = False
+
+elif varUserInput == 'createcompliant':
+    log.info('The user request is to create a compliant resource')
+    varFlag = True
+elif varUserInput == "createnoncompliant":
+    log.info('The user request is to create a non-compliant resource')
+    varFlag = False
+
+if varFlag is True:
+    log.info('Creating a compliant cloudtrail resource')
+    i=func_create_non_comp_cloudTrail()
+    print (i['TrailARN'])
+    Arn = i['TrailARN']
+    response=cloudTrail.update_trail(
+            Name = Arn,
+            IsMultiRegionTrail=True,
+            EnableLogFileValidation=True
+            )
+    if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+        log.info('Compliant resource is created')
+elif varFlag is False:
+    log.info('Creating a non-compliant cloudtrail resource')
+    i=func_create_non_comp_cloudTrail()
+    Arn = i['TrailARN']
+    response=cloudTrail.update_trail(
+            Name = Arn,
+            IsMultiRegionTrail=True,
+            EnableLogFileValidation=False
+            )
+    if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+        log.info('non-compliant resource is created')
+else:
+    sys.exit()
