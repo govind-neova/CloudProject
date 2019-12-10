@@ -15,13 +15,6 @@ varScriptName = sys.argv[0]
 #Global variables
 client = boto3.client('cloudtrail')
 varFlag = ''
-#log.info('Gathering information for regions')
-#data = get_regions()
-#if data:
-#    log.info('Ragion list stored in a variable')
-#else:
-#    log.error('Unable to fetch list of regions')
-#    sys.exit()
 
 def get_regions():
     client = boto3.client('ec2')
