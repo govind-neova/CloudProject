@@ -39,7 +39,7 @@ def func_create_non_comp_cloudTrail():
     # Create a bucket policy
     s3 = boto3.client('s3')
     response = s3.create_bucket(
-        ACL='public-read-write',
+        ACL='private',
         Bucket=bucket
         )
     
