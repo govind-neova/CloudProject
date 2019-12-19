@@ -2,18 +2,16 @@
 
 import boto3
 import json
-from common import *
 import sys
-
-#Declairing user input variable
-varUserInput = func_user_input_validation()
-
-#Declairing scriptname for json file
-varScriptName = sys.argv[0]
+import os.path
+from os import path
+sys.path.insert(0, '../')
+from common import *
 
 #Global variables
 client = boto3.client('cloudtrail')
 varFlag = ''
+varResources = []
 
 def get_regions():
     client = boto3.client('ec2')
@@ -50,13 +48,8 @@ def get_cloudtrails(varDecision):
 
     return trails
 
-#k=get_cloudtrails (False)
-#print (k)
-#for i in k:
-#    print (k)
-
 def func_update_compliant_or_non_compliant(varHomeRegion,varTrailARN,varDecision):
-    print (varHomeRegion)
+    #print (varHomeRegion)
     client = boto3.client('cloudtrail', region_name=varHomeRegion)
     response = client.get_trail_status(Name=varTrailARN)
     if varDecision == False:
@@ -66,7 +59,10 @@ def func_update_compliant_or_non_compliant(varHomeRegion,varTrailARN,varDecision
                     Name = varTrailARN,
                     IsMultiRegionTrail=False
                         )
-                return response
+                if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+                    log.info('Resourse "'  +varTrailARN+  '" made non-compliant')
+                else:
+                    log.error('Error occoured while performing non-compliant update')
         except Exception as e:
             print(e)
     elif varDecision == True:
@@ -80,7 +76,10 @@ def func_update_compliant_or_non_compliant(varHomeRegion,varTrailARN,varDecision
             response1=client.start_logging(
                     Name=varTrailARN
                     )
-            return response
+            if response['ResponseMetadata']['HTTPStatusCode'] == 200 and response1['ResponseMetadata']['HTTPStatusCode'] == 200:
+                log.info('Resourse "' +varTrailARN+ '" made compliant')
+            else:
+                log.error('Error occoured while performing compliant update')
         except Exception as e:
             print(e)
 
@@ -94,75 +93,67 @@ def func_delete_cloudTrail():
                 try:
                     cloudTrail = boto3.client('cloudtrail', region_name=varHomeRegion)
                     response = cloudTrail.delete_trail(Name = varTrailARN)
-                    #if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-                    #    varFlag = True
-                    #else:
-                    #    varFlag = False
+                    if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+                        log.info('Resourse "' +varTrailARN+ '" id deleted')
                 except Exception as e:
                     print (e)
-        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-            log.info('Deletion performed successfully')
-        else:
-            log.error('Error occoured wile deleting the Cloudtrail')
     else:
         log.info("Cloudtrail resource does not exist")
         sys.exit()
 
-if varUserInput == 'nonCompliantUpdate':
+if func_user_input_validation() == 'nonCompliantUpdate':
     log.info('The user request is to make resources non-compliant')
     log.info("Gathering information for compliant resources")
     varCompliant=get_cloudtrails(True)
-    print (varCompliant)
+    #print (varCompliant)
     if varCompliant:
         for i in varCompliant:
             for j in  varCompliant[i]:
-                print (j)
+                #print (j)
+                varResources.append(j)
                 varHomeRegion = j['HomeRegion']
-                print(j['HomeRegion'])
+                #print(j['HomeRegion'])
                 varTrailARN = j['TrailARN']
                 response=func_update_compliant_or_non_compliant(varHomeRegion,varTrailARN,False)
-    if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-        log.info("Operation non-compliant update performed sucessfully")
     else:
         log.info("compliant resources does not exist")
 
-if varUserInput == 'compliantUpdate':
+if func_user_input_validation() == 'compliantUpdate':
     log.info('The user request is to make resources compliant')
     log.info("Gathering information for non-compliant resources")
     varNon_compliant=get_cloudtrails(False)
     if varNon_compliant:
         for i in varNon_compliant:
             for j in  varNon_compliant[i]:
-                print(j)
+                #print(j)
                 varHomeRegion = j['HomeRegion']
                 varTrailARN = j['TrailARN']
-                response=func_update_compliant_or_non_compliant(varHomeRegion,varTrailARN,True)
-    if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-        log.info("Operation compliant update performed sucessfully")
+                response = func_update_compliant_or_non_compliant(varHomeRegion,varTrailARN,True)
+                #print (response)
     else:
         log.info("non-compliant resources does not exist")
 
-elif varUserInput == 'compliantDelete':
+elif func_user_input_validation() == 'compliantDelete':
     log.info('The user request is to delete existing resource/resources and create a compliant resource')
     func_delete_cloudTrail()
     varFlag = True
 
-elif varUserInput == 'nonCompliantDelete':
+elif func_user_input_validation() == 'nonCompliantDelete':
     log.info('The user request is to delete existing resource/resources and create a non-compliant resource')
     func_delete_cloudTrail()
     varFlag = False
 
-elif varUserInput == 'createcompliant':
+elif func_user_input_validation() == 'createcompliant':
     log.info('The user request is to create a compliant resource')
     varFlag = True
-elif varUserInput == "createnoncompliant":
+elif func_user_input_validation() == "createnoncompliant":
     log.info('The user request is to create a non-compliant resource')
     varFlag = False
 
 if varFlag is True:
     log.info('Creating a compliant resource')
     response=func_create_non_comp_cloudTrail()
-    print (response['TrailARN'])
+    #print (response['TrailARN'])
     Arn = response['TrailARN']
     response1=cloudTrail.update_trail(
             Name = Arn,
@@ -173,13 +164,20 @@ if varFlag is True:
             Name=Arn
             )
     if response1['ResponseMetadata']['HTTPStatusCode'] == 200 and response2['ResponseMetadata']['HTTPStatusCode'] == 200:
-        log.info('Compliant resource is created')
+        log.info('Resourse "' +Arn+ '" is created')
 
 elif varFlag is False:
     log.info('Creating a compliant resource')
     response=func_create_non_comp_cloudTrail()
-    if response1['ResponseMetadata']['HTTPStatusCode'] == 200:
-        log.info('Compliant resource is created')
+    if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+        log.info('Resourse "' +response['TrailARN']+ '" is created')
+
+#Writing changes to json file
+log.info("Writing changes to json file")
+func_write_to_json(varResources)
+varFile = sys.argv[0]
+varFile = varFile[:-2]
+if (path.exists(varFile+".json")) is True :
+    log.info("Changes have been written to json file")
 else:
-    #func_reset_config()
-    sys.exit()
+    log.error("Json file is not created")

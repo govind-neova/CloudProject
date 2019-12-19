@@ -1,35 +1,46 @@
 #!/usr/bin/python3
 import boto3
 import sys
+sys.path.insert(0, '../')
 from common import *
 
 ####################Script for require numbers in password policy###############
+log.info("Initiating script ")
 
-varUserInput= func_user_input_validation()
-varScriptName = sys.argv[0]
+#Function enables/disables the "require at least one number in password"
+def funcRequireNumber(varDecision):
+    log.info("Updating the policy, please wait....")
+    client = boto3.client('iam')
+    response = client.update_account_password_policy(
+        RequireNumbers=varDecision
+        )
+    if (response['ResponseMetadata']['HTTPStatusCode']) == 200:
+        log.info("Password policy updated successfully")
+    else:
+        log.error("Error occurred while updating Password policy")
+        sys.exit()
+
+
 
 #Comparing whether request is for compliant or non-compliant 
-if varUserInput == 'compliantUpdate':
+if func_user_input_validation() == 'compliantUpdate':
     #Checking the require number checkbox
-    client = boto3.client('iam')
-    response = client.update_account_password_policy(
-        RequireNumbers=True
-        )
+    log.info("Enabling require number in password")
+    funcRequireNumber(True)
     log.info("Enabled require number in password")
-elif varUserInput == 'nonCompliantUpdate':
+    log.info("Password policy is now updated to compliant")
+elif func_user_input_validation() == 'nonCompliantUpdate':
     #Un-Checking the require number checkbox
     log.warning("Disabling require numbers in password makes non-compliance")
-    client = boto3.client('iam')
-    response = client.update_account_password_policy(
-        RequireNumbers=False
-    )
+    log.info("Disabling require numbers in password")
+    funcRequireNumber(False)
     log.info("Disabled require number in password")
-elif varUserInput == 'compliantDelete' or varUserInput == 'nonCompliantDelete':
+    log.info("Password policy is now updated to non-compliant")
+elif func_user_input_validation() == 'compliantDelete' or func_user_input_validation() == 'nonCompliantDelete':
     log.error("Deletion does not apply to this process.")
-elif varUserInput == 'createcompliant' or varUserInput == "createnoncompliant":
+    sys.exit()
+elif func_user_input_validation() == 'createcompliant' or func_user_input_validation() == "createnoncompliant":
     log.error("Creation does not apply to this process")
-elif varUserInput == '':
-    log.error("Please provide valid inputs in config.yaml file")
+    sys.exit()
 
-func_write_to_json(varScriptName)
-func_reset_config ()
+func_write_to_json()

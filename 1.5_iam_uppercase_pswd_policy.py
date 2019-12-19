@@ -2,37 +2,44 @@
 #Script for the uppercase password policy compliance/Non-compliance
 import boto3
 import sys
+sys.path.insert(0, '../')
 from common import *
 
 ####################Script for the uppercase password policy compliance###################
+log.info("Initiating script ")
 
-#Declaring decision variable
-varUserInput= func_user_input_validation()
-varScriptName = sys.argv[0]
-
-
-#Comparing whether request is for compliant or non-compliant 
-if varUserInput == 'compliantUpdate':
-    #Checking the required uppercase characters checkbox
+#Function to update Password policy as per the inputs provided
+def funcUpdatePwdPolicy(vardecision):
+    log.info("Updating the policy, please wait....")
     client = boto3.client('iam')
     response = client.update_account_password_policy(
-        RequireUppercaseCharacters=True
-    )
+        RequireUppercaseCharacters=vardecision
+        )
+    if (response['ResponseMetadata']['HTTPStatusCode']) == 200:
+        log.info("Password policy updated successfully")
+    else:
+        log.error("Error occurred while updating Password policy")
+        sys.exit()
+
+#According to inputs provided script will take action
+if func_user_input_validation() == 'compliantUpdate':
+    #Ticks the required uppercase characters checkbox
+    log.info("Enabling uppercase case in password policy")
+    funcUpdatePwdPolicy(True)
     log.info("Enabled uppercase character in password")
-elif varUserInput == 'nonCompliantUpdate':
+    log.info("Password policy is now updated to compliant")
+elif func_user_input_validation() == 'nonCompliantUpdate':
     #Un-Checking the required uppercase characters checkbox
     log.warning("Disabling require uppercase character in password makes non-compliance")
-    client = boto3.client('iam')
-    response = client.update_account_password_policy(
-        RequireUppercaseCharacters=False
-    )   
+    funcUpdatePwdPolicy(False)
     log.info("Disabled uppercase character in password")
-elif varUserInput == 'compliantDelete' or varUserInput == 'nonCompliantDelete':
+    log.info("Password policy is now updated to compliant")
+elif func_user_input_validation() == 'compliantDelete' or func_user_input_validation() == 'nonCompliantDelete':
     log.error("Deletion does not apply to this process.")
-elif varUserInput == 'createcompliant' or varUserInput == "createnoncompliant":
+    sys.exit()
+elif func_user_input_validation() == 'createcompliant' or func_user_input_validation() == "createnoncompliant":
     log.error("Creation does not apply to this process")
-elif varUserInput == '':
-    log.error("Please provide valid inputs in config.yaml file")
+    sys.exit()
 
-func_write_to_json(varScriptName)
-func_reset_config ()
+
+func_write_to_json()

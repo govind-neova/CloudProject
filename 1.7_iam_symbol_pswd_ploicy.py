@@ -1,37 +1,46 @@
 #!/usr/bin/python3
 import boto3
 import sys
+sys.path.insert(0, '../')
 from common import *
 
 #################This script Ensures compliance password policy require at least one symbol#################
+log.info("Initiating script ")
 
-#Declaring decision variable
-varUserInput= func_user_input_validation()
-varScriptName = sys.argv[0]
+#Function to update "require at least one symbol" password policy
+def funcRequireSymbol(varDecision):
+    log.info("Updating the policy, please wait....")
+    client = boto3.client('iam')    
+    response = client.update_account_password_policy(
+        RequireSymbols=varDecision
+    )
+    if (response['ResponseMetadata']['HTTPStatusCode']) == 200:
+        log.info("Password policy updated successfully")
+    else:
+        log.error("Error occurred while updating Password policy")
+        sys.exit()
 
 #Comparing whether request is for compliant or non-compliant 
-if varUserInput == 'compliantUpdate':
-#Enabling the RequireSymbols field
-    client = boto3.client('iam')
-    response = client.update_account_password_policy(
-        RequireSymbols=True
-    )
-    log.info("Enabled required at least one symbol in password")
-elif varUserInput == 'nonCompliantUpdate':
-    log.warning("Disabling require at least one symbol in password makes non-compliance")
-#Disabling the RequireSymbols field to make non-compliance
-    client = boto3.client('iam')
-    response = client.update_account_password_policy(
-        RequireSymbols=False
-    )
-    log.info("Disabled requirement of at least one symbol in password")
-elif varUserInput == 'compliantDelete' or varUserInput == 'nonCompliantDelete':
+if func_user_input_validation() == 'compliantUpdate':
+    #Enabling the RequireSymbols field
+    log.info("Enabling require symbol in password policy")
+    funcRequireSymbol(True)
+    log.info("Enabled require symbol in password")
+    log.info("Password policy is now updated to compliant")
+elif func_user_input_validation() == 'nonCompliantUpdate':
+    log.warning("Disabling require symbol in password makes non-compliance")
+    #Disabling the RequireSymbols field
+    log.info("Disabling require symbol in password")
+    funcRequireSymbol(False)
+    log.info("Disabled require symbol in password")
+    log.info("Password policy is now updated to non-compliant")
+elif func_user_input_validation() == 'compliantDelete' or func_user_input_validation() == 'nonCompliantDelete':
     log.error("Deletion does not apply to this process.")
-elif varUserInput == 'createcompliant' or varUserInput == "createnoncompliant":
+    sys.exit()
+elif func_user_input_validation() == 'createcompliant' or func_user_input_validation() == "createnoncompliant":
     log.error("Creation does not apply to this process")
-else:
-    log.error("Please provide valid inputs in config.yaml file")
+    sys.exit()
 
 
-func_write_to_json(varScriptName)
-func_reset_config ()
+func_write_to_json()
+

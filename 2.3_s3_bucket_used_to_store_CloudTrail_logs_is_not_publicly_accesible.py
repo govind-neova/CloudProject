@@ -2,18 +2,13 @@
 
 import boto3
 import json
-from common import *
 import sys
-import array
+import os.path
+from os import path
+sys.path.insert(0, '../')
+from common import *
 import re
 from re import search
-
-
-#Declairing user input variable
-varUserInput = func_user_input_validation()
-
-#Declairing scriptname for json file
-varScriptName = sys.argv[0]
 
 #Global variables
 client = boto3.client('cloudtrail')
@@ -25,94 +20,60 @@ def get_regions():
     regions = [region['RegionName'] for region in region_response['Regions']]
     return regions
 
-def get_cloudtrails():
-    trails = dict()
+def func_validate_and_update(varDecision):
     for n in get_regions():
         client = boto3.client('cloudtrail', region_name=n)
         response = client.describe_trails()
+        S3_CLIENT = boto3.client('s3')
         temp = []
         for m in response['trailList']:
             if m['HomeRegion'] == n:
-                temp.append(m)
-        if len(temp) > 0:
-            trails[n] = temp
-    return trails
-
-
-trails = dict()
-for n in get_regions():
-    client = boto3.client('cloudtrail', region_name=n)
-    response = client.describe_trails()
-    S3_CLIENT = boto3.client('s3') 
-    temp = []
-    for m in response['trailList']:
-        if m['HomeRegion'] == n:
-            #print (m['S3BucketName']+ ' :-----: ' +m['HomeRegion'])
-            s3_response = S3_CLIENT.get_bucket_acl(Bucket=m['S3BucketName'])
-            #print (s3_response['Grants'])
-            for p in s3_response['Grants']:
-                #print (p)
                 #print (m['S3BucketName']+ ' :-----: ' +m['HomeRegion'])
-                #print (p['Grantee'])
-                #for i in p['Grantee']:
-                #    if str(i) != str('URI'):
-                #        #print('present')
-                #        #print (p['Grantee']['URI'])
-                #        #varPub1 = 'global/AllUsers'
-                #        #varPub2 = 'global/AuthenticatedUsers'
-                #        #if str(varPub1) not in (p['Grantee']['URI']) and str(varPub2) not in (p['Grantee']['URI']):
-                #        print (m['S3BucketName']+ ' :-----: ' +m['HomeRegion'])
-                #print(str(p['Grantee']))
-                if  re.search(r'(global/AllUsers|global/AuthenticatedUsers)', str(p['Grantee'])):
-                    log.info('public bucket')
-                #    print (m['S3BucketName']+ ' :-----: ' +m['HomeRegion'])
-                #    print (m['S3BucketName'])
-                    temp.append(m)
-                    if len(temp) > 0:
-                        trails[n] = temp
-#print (trails)
+                s3_response = S3_CLIENT.get_bucket_acl(Bucket=m['S3BucketName'])
+                if varDecision is False:
+                    if not re.search(r'(global/AllUsers|global/AuthenticatedUsers)', str(s3_response)):
+                        print(m['S3BucketName'])
+                        varBucketName = m['S3BucketName']
+                        print (s3_response)
+                        response = S3_CLIENT.put_bucket_acl(
+                                ACL='public-read-write',
+                                Bucket=m['S3BucketName']
+                                )
+                        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+                            log.info('Resourse "' +varBucketName+ '" made non-compliant')
+                    else:
+                        varBucketName = m['S3BucketName']
+                        log.info('Resourse "' +varBucketName+ '" is already non-compliant')
 
-#for n in get_regions():
-#    client = boto3.client('cloudtrail', region_name=n)
-#    response = client.describe_trails()
-#    S3_CLIENT = boto3.client('s3')
-#    temp = []
-#    for m in response['trailList']:
-#        if m['HomeRegion'] == n:
-#            #print (m['TrailARN'])
-#            for i in trails:
-#                for j in trails[i]:
-#                    if (m['TrailARN']) == (j['TrailARN']):
-#                        continue
-#                    else:
-#                        print (m['TrailARN'])
+                elif varDecision is True:
+                    if re.search(r'(global/AllUsers|global/AuthenticatedUsers)', str(s3_response)):
+                        print(m['S3BucketName'])
+                        varBucketName = m['S3BucketName']
+                        print (s3_response)
+                        response = S3_CLIENT.put_bucket_acl(
+                                ACL='private',
+                                Bucket=m['S3BucketName']
+                                )
+                        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+                            log.info('Resourse "' +varBucketName+ '" made compliant')
+                    else:
+                        varBucketName = m['S3BucketName']
+                        log.info('Resourse "' +varBucketName+ '" is already compliant')
 
-for n in get_regions():
-    client = boto3.client('cloudtrail', region_name=n)
-    response = client.describe_trails()
-    S3_CLIENT = boto3.client('s3')
-    temp = []
-    for m in response['trailList']:
-        if m['HomeRegion'] == n:
-            #print (m['S3BucketName']+ ' :-----: ' +m['HomeRegion'])
-            s3_response = S3_CLIENT.get_bucket_acl(Bucket=m['S3BucketName'])
-            if not re.search(r'(global/AllUsers|global/AuthenticatedUsers)', str(s3_response)):
-                print(m['S3BucketName'])
-                print (s3_response)
+#func_validate_compliant_or_not(True)
 
-#for i in trails:
-#    for j in trails[i]:
-#        s3_response = S3_CLIENT.get_bucket_acl(Bucket=m['S3BucketName'])
-#        #print(s3_response)
-#        if re.search(r'(global/AllUsers|global/AuthenticatedUsers)', str(s3_response)):
-#            print (s3_response)
-        #for p in s3_response['Grants']:
-        #    print(p)
+if func_user_input_validation() == 'compliantUpdate':
+    log.info('The user request is to make resources compliant')
+    log.info("Gathering information for non-compliant resources")
+    func_validate_and_update(True)
 
-                #print("Grantee is " + str(p['Grantee']))
-            #print (s3_response)
+elif func_user_input_validation() == 'nonCompliantUpdate':
+    log.info('The user request is to make resources non-compliant')
+    log.info("Gathering information for compliant resources")
+    func_validate_and_update(False)
 
-#cloud_trails = get_cloudtrails()
-#for i in cloud_trails:
-#    for j in  cloud_trails[i]:
-#        print(j['S3BucketName'])
+elif func_user_input_validation() == 'compliantDelete' or func_user_input_validation() == 'nonCompliantDelete' :   
+    log.error("Deletion does not apply to this process.")
+
+elif func_user_input_validation() == 'createcompliant' or func_user_input_validation() == "createnoncompliant":
+    log.error("Creation does not apply to this process")

@@ -2,9 +2,11 @@
 
 import boto3
 import json
-from common import *
 import sys
-import array
+import os.path
+from os import path
+sys.path.insert(0, '../')
+from common import *
 
 #Declairing user input variable
 varUserInput = func_user_input_validation()
@@ -58,9 +60,9 @@ def func_update_compliant_or_non_compliant(varHomeRegion,varTrailARN,varDecision
             )
     if response['ResponseMetadata']['HTTPStatusCode'] == 200:
         if varDecision == True:
-            log.info('Resources are made compliant successfully')
+            log.info('Resourse "' +varTrailARN+ '" updated as compliant')
         elif varDecision == False:
-            log.info('Resources are made non-compliant successfully')
+            log.info('Resourse "' +varTrailARN+ '" updated as non-compliant')
         else:
             log.info('Error occoured while updating resources')
 
@@ -74,16 +76,12 @@ def func_delete_cloudTrail():
                 try:
                     cloudTrail = boto3.client('cloudtrail', region_name=varHomeRegion)
                     response = cloudTrail.delete_trail(Name = varTrailARN)
-                    #if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-                    #    varFlag = True
-                    #else: 
-                    #    varFlag = False
+                    if response['ResponseMetadata']['HTTPStatusCode'] == 200:
+                        log.info('Resourse "' +varTrailARN+ '" is deleted')
+                    elif response['ResponseMetadata']['HTTPStatusCode'] != 200:
+                        log.info('Error occoured while deleting the resource')
                 except Exception as e:
                     print (e)
-        if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-            log.info('Deletion performed successfully')
-        else:
-            log.error('Error occoured wile deleting the Cloudtrail')
     else:
         log.info("Cloudtrail resource does not exist")
         sys.exit()
@@ -140,7 +138,7 @@ if varFlag is True:
             EnableLogFileValidation=True
             )
     if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-        log.info('Compliant resource is created')
+        log.info('Resourse "' +Arn+ '" is created')
 elif varFlag is False:
     log.info('Creating a non-compliant cloudtrail resource')
     i=func_create_non_comp_cloudTrail()
@@ -151,6 +149,4 @@ elif varFlag is False:
             EnableLogFileValidation=False
             )
     if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-        log.info('non-compliant resource is created')
-else:
-    sys.exit()
+        log.info('Resourse "' +Arn+ '" is created')

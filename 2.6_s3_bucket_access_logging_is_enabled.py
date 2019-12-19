@@ -2,20 +2,18 @@
 
 import boto3
 import json
-from common import *
 import sys
-
-#Declairing user input variable
-varUserInput = func_user_input_validation()
-
-#Declairing scriptname for json file
-varScriptName = sys.argv[0]
+import os.path
+from os import path
+sys.path.insert(0, '../')
+from common import *
 
 #Global variables
 client = boto3.client('cloudtrail')
 varFlag = ''
 s3 = boto3.client('s3')
-var_bucket_name = ''
+#var_bucket_name = ''
+varResources = []
 
 def get_regions():
     client = boto3.client('ec2')
@@ -61,7 +59,7 @@ def func_validate_s3_bkt_complianr_or_not(varDecision):
 
 def func_create_bucket(var_bucket_name,varRegion):
     region = varRegion
-    print (region)
+    #print (region)
     if region == 'us-east-1':
         s3 = boto3.client('s3')
         bucket = var_bucket_name
@@ -69,18 +67,7 @@ def func_create_bucket(var_bucket_name,varRegion):
                 ACL='log-delivery-write',
                 Bucket=bucket
                 )
-    elif region != 'us-east-1' and ( region != 'eu-west-2' or region != 'eu-west-3' or region != 'eu-north-1' ):
-        s3 = boto3.client('s3',region_name=region)
-        bucket = var_bucket_name
-        response = s3.create_bucket(
-                ACL='log-delivery-write',
-                CreateBucketConfiguration={
-                    'LocationConstraint':region
-                    },
-                Bucket=bucket
-                )
-    elif region == 'eu-west-2' or region == 'eu-west-3' or region == 'eu-north-1':
-        region = 'EU'
+    elif region != 'us-east-1':
         s3 = boto3.client('s3',region_name=region)
         bucket = var_bucket_name
         response = s3.create_bucket(
@@ -93,33 +80,34 @@ def func_create_bucket(var_bucket_name,varRegion):
 
     return response
 
-if varUserInput == 'nonCompliantUpdate':
+if func_user_input_validation() == 'nonCompliantUpdate':
     log.info('Updating resources as non-compliant as per request')
     log.info("Gathering information for compliant resources")
     varCompliant=func_validate_s3_bkt_complianr_or_not(True)
     for i in varCompliant:
         for j in varCompliant[i]:
-            print (j)
+            #print (j)
             #bucket_logging = s3.BucketLogging(j)
             s3_response = s3.put_bucket_logging(
                     Bucket=j,
                     BucketLoggingStatus={},
                     )
-            print(s3_response)
+            if s3_response['ResponseMetadata']['HTTPStatusCode'] == 200:
+                log.info('Resourse "' +j+ '" updated as non-compliant')
 
-elif varUserInput == 'compliantUpdate':
+elif func_user_input_validation() == 'compliantUpdate':
     log.info('Updating resources as compliant as per request')
     log.info("Gathering information for non-compliant resources")
     varNonCompliant=func_validate_s3_bkt_complianr_or_not(False)
     for i in varNonCompliant:
         for j in varNonCompliant[i]:
             var_bucket_name = funcResName("s3","bucket")
-            print (var_bucket_name)
+            #print (var_bucket_name)
             varRegion = i
             s3_response1=func_create_bucket(var_bucket_name,varRegion)
-            print(s3_response1)
-            print (var_bucket_name)
-            print (j)
+            #print(s3_response1)
+            #print (var_bucket_name)
+            #print (j)
             s3_response = s3.put_bucket_logging(
                     Bucket=j,
                     BucketLoggingStatus={
@@ -129,11 +117,11 @@ elif varUserInput == 'compliantUpdate':
                         }
                     },
                 )
-            print(s3_response)
+            if s3_response['ResponseMetadata']['HTTPStatusCode'] == 200:
+                log.info('Resourse "' +j+ '" updated as compliant')
 
-elif varUserInput == 'compliantDelete' or varUserInput == 'nonCompliantDelete' :   
+elif func_user_input_validation() == 'compliantDelete' or func_user_input_validation() == 'nonCompliantDelete' :   
     log.error("Deletion does not apply to this process.")
 
-elif varUserInput == 'createcompliant' or varUserInput == "createnoncompliant":
+elif func_user_input_validation() == 'createcompliant' or func_user_input_validation() == "createnoncompliant":
     log.error("Creation does not apply to this process")
-

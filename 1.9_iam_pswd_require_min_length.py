@@ -1,36 +1,44 @@
 #!/usr/bin/python3
 import boto3
 import sys
+sys.path.insert(0, '../')
 from common import *
 
 ##############Script for minimum password length #########################
+log.info("Initiating script ")
 
-#Declaring decision variable
-varUserInput= func_user_input_validation()
-varScriptName = sys.argv[0]
+#This function updates length of password
+def funcUpdatePaswdLenght(varLen):
+    log.info("Updating the policy, please wait....")
+    client = boto3.client('iam')
+    response = client.update_account_password_policy(
+        MinimumPasswordLength=varLen
+        )
+    if (response['ResponseMetadata']['HTTPStatusCode']) == 200:
+        log.info("Password policy updated successfully")
+    else:
+        log.error("Error occurred while updating Password policy")
+        sys.exit()
 
 #Comparing whether request is for compliant or non-compliant 
-if varUserInput == 'compliantUpdate':
+if func_user_input_validation() == 'compliantUpdate':
     #Changing password length
-    client = boto3.client('iam')
-    response = client.update_account_password_policy(
-        MinimumPasswordLength=15
-        )
-    log.info("Success, minimum password length required is now set to 15")
-elif varUserInput == 'nonCompliantUpdate':
+    log.info("Updating the required password length greater than 14")
+    funcUpdatePaswdLenght(15)
+    log.info("Minimum password length required is now set to 15")
+    log.info("Password policy is now updated to compliant")
+elif func_user_input_validation() == 'nonCompliantUpdate':
     log.warning("Reducing password length makes it non-compliant")
-    client = boto3.client('iam')
-    response = client.update_account_password_policy(
-        MinimumPasswordLength=13
-        )
-    log.info("Success, minimum password length required is now set to 13")
-elif varUserInput == 'compliantDelete' or varUserInput == 'nonCompliantDelete':
+    log.info("Updating the required password length less than 14")
+    funcUpdatePaswdLenght(13)
+    log.info("Minimum password length required is now set to 13")
+    log.info("Password policy is now updated to non-compliant")
+elif func_user_input_validation() == 'compliantDelete' or func_user_input_validation() == 'nonCompliantDelete':
     log.error("Deletion does not apply to this process.")
-elif varUserInput == 'createcompliant' or varUserInput == "createnoncompliant":
+    sys.exit()
+elif func_user_input_validation() == 'createcompliant' or func_user_input_validation() == "createnoncompliant":
     log.error("Creation does not apply to this process")
-elif varUserInput == '':
-    log.error("Please provide valid inputs in config.yaml file")
+    sys.exit()
 
-func_write_to_json(varScriptName)
-func_reset_config ()
+func_write_to_json()
 
